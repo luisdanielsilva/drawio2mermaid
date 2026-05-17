@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DrawIO → Mermaid Converter</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f13;
+    --surface: #16161d;
+    --surface2: #1e1e28;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.16);
+    --accent: #7b6ef6;
+    --accent2: #4ecdc4;
+    --text: #e8e8f0;
+    --text-muted: #8888a0;
+    --text-dim: #55556a;
+    --success: #4ecdc4;
+    --error: #ff6b6b;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --radius: 8px;
+    --radius-lg: 14px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-mark {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .logo-text {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  .logo-sep {
+    color: var(--text-dim);
+    margin: 0 4px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .badge {
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 3px 9px;
+    border-radius: 20px;
+    border: 1px solid var(--border-strong);
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+  }
+
+  /* Main layout */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .toolbar-sep {
+    width: 1px; height: 20px;
+    background: var(--border-strong);
+    margin: 0 4px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface2); border-color: rgba(255,255,255,0.22); }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #6c5fe0; border-color: #6c5fe0; }
+
+  .btn-sm {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .btn-icon {
+    padding: 7px 9px;
+  }
+
+  /* Status pill */
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-family: var(--mono);
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin-left: auto;
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+  .status-pill.ready .status-dot { background: var(--success); }
+  .status-pill.error .status-dot { background: var(--error); }
+  .status-pill.ready { color: var(--success); }
+  .status-pill.error { color: var(--error); }
+
+  /* Panels */
+  .panels {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+    min-height: 0;
+  }
+  .panel:last-child { border-right: none; }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .panel-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+
+  .panel-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .dot-xml { background: #f7941d; }
+  .dot-mermaid { background: var(--accent); }
+  .dot-preview { background: var(--accent2); }
+
+  .panel-body {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+  }
+
+  /* XML Editor */
+  #xml-editor {
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    border: none;
+    outline: none;
+    resize: none;
+    tab-size: 2;
+  }
+  #xml-editor::placeholder { color: var(--text-dim); }
+
+  /* Mermaid output */
+  #mermaid-output {
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 100%;
+    background: var(--bg);
+  }
+
+  /* Mermaid syntax highlight pseudo */
+  .m-keyword { color: #c792ea; }
+  .m-arrow { color: var(--accent2); }
+  .m-node { color: #82aaff; }
+  .m-label { color: #c3e88d; }
+  .m-comment { color: var(--text-dim); font-style: italic; }
+
+  /* Preview panel */
+  #preview-panel {
+    background: #fff;
+    min-height: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  #preview-panel.dark-bg {
+    background: var(--bg);
+  }
+
+  #mermaid-render {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  #mermaid-render svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 300px;
+    gap: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 24px;
+  }
+
+  .empty-icon {
+    font-size: 40px;
+    opacity: 0.3;
+  }
+
+  .empty-state p {
+    font-size: 13px;
+    max-width: 200px;
+    line-height: 1.6;
+  }
+
+  /* Error display */
+  .error-box {
+    margin: 16px;
+    padding: 12px 14px;
+    background: rgba(255,107,107,0.08);
+    border: 1px solid rgba(255,107,107,0.25);
+    border-radius: var(--radius);
+    color: var(--error);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.6;
+  }
+
+  /* Drop zone overlay */
+  .drop-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(123,110,246,0.12);
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius);
+    z-index: 10;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .drop-overlay.active { display: flex; }
+
+  /* Tabs for layout options */
+  .tab-group {
+    display: flex;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .tab {
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); background: var(--surface2); }
+  .tab.active { background: var(--accent); color: #fff; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+  /* Tooltip */
+  [title] { cursor: help; }
+
+  /* Copy feedback */
+  .copied-flash {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--success);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .copied-flash.show { opacity: 1; }
+
+  /* Line numbers in mermaid output */
+  .line-num {
+    color: var(--text-dim);
+    user-select: none;
+    display: inline-block;
+    min-width: 28px;
+    text-align: right;
+    margin-right: 10px;
+    font-size: 11px;
+  }
+
+  svg text { font-family: var(--sans) !important; }
+
+  @media (max-width: 900px) {
+    .panels { grid-template-columns: 1fr; grid-template-rows: auto auto auto; }
+    .panel { border-right: none; border-bottom: 1px solid var(--border); min-height: 300px; }
+    .panel-body { min-height: 250px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">D→M</div>
+    <span class="logo-text">DrawIO <span class="logo-sep">→</span> Mermaid</span>
+  </div>
+  <div class="header-actions">
+    <span class="badge">XML parser</span>
+    <span class="badge">v1.0</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="toolbar-group">
+    <button class="btn btn-primary" onclick="handleConvert()">
+      ▶ Convert
+    </button>
+    <button class="btn" onclick="loadExample()">Load example</button>
+    <button class="btn" onclick="clearAll()">Clear</button>
+  </div>
+  <div class="toolbar-sep"></div>
+  <div class="toolbar-group">
+    <button class="btn btn-sm" onclick="copyMermaid()" id="copy-btn">Copy Mermaid</button>
+    <button class="btn btn-sm" onclick="downloadMermaid()">Download .mmd</button>
+  </div>
+  <div class="toolbar-sep"></div>
+  <label style="font-size:12px; color: var(--text-muted); display:flex; align-items:center; gap:6px; cursor:pointer;">
+    <input type="file" accept=".xml,.drawio" style="display:none" id="file-input" onchange="handleFile(event)">
+    <button class="btn btn-sm" onclick="document.getElementById('file-input').click()">📂 Open file</button>
+  </label>
+  <div id="status-pill" class="status-pill">
+    <div class="status-dot"></div>
+    <span id="status-text">idle</span>
+  </div>
+</div>
+
+<main>
+  <div class="panels">
+    <!-- Panel 1: XML Input -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="panel-dot dot-xml"></span>
+          DrawIO XML
+        </div>
+        <button class="btn btn-icon btn-sm" onclick="document.getElementById('file-input').click()" title="Upload .xml or .drawio file">↑</button>
+      </div>
+      <div class="panel-body" id="xml-drop-zone">
+        <div class="drop-overlay" id="drop-overlay">
+          <div style="font-size:28px">📄</div>
+          Drop .xml or .drawio file
+        </div>
+        <textarea id="xml-editor" spellcheck="false" placeholder="Paste your DrawIO XML here…
+
+Or click 'Load example' to try a sample diagram.
+You can also drag & drop a .xml or .drawio file onto this area.
+
+Supported shapes:
+  • Flowchart nodes (process, decision, start/end)
+  • Edges / connectors with labels
+  • Swimlanes / groups
+  • Sequence diagram actors
+" oninput="autoConvert()"></textarea>
+      </div>
+    </div>
+
+    <!-- Panel 2: Mermaid output -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="panel-dot dot-mermaid"></span>
+          Mermaid Syntax
+        </div>
+        <button class="btn btn-icon btn-sm" onclick="copyMermaid()" title="Copy to clipboard">⎘</button>
+      </div>
+      <div class="panel-body">
+        <div id="mermaid-output"><div class="empty-state"><div class="empty-icon">∿</div><p>Mermaid code will appear here after conversion.</p></div></div>
+      </div>
+    </div>
+
+    <!-- Panel 3: Live preview -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="panel-dot dot-preview"></span>
+          Live Preview
+        </div>
+        <div class="tab-group">
+          <button class="tab active" onclick="setPreviewBg('light', this)">Light</button>
+          <button class="tab" onclick="setPreviewBg('dark', this)">Dark</button>
+        </div>
+      </div>
+      <div class="panel-body" style="background:#fff;" id="preview-container">
+        <div id="preview-panel">
+          <div class="empty-state" style="color:#aaa;">
+            <div class="empty-icon">⬡</div>
+            <p>Diagram preview will render here.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="copied-flash" id="copied-flash">Copied to clipboard!</div>
+
+<script>
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  flowchart: { htmlLabels: true, curve: 'basis' },
+  securityLevel: 'loose'
+});
+
+let lastMermaidCode = '';
+let autoConvertTimer = null;
+
+// ─── EXAMPLE XML ────────────────────────────────────────────────────────────
+const EXAMPLE_XML = `<mxGraphModel>
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="2" value="Start" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+      <mxGeometry x="160" y="40" width="120" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="3" value="Input Data" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+      <mxGeometry x="160" y="140" width="120" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="4" value="Valid?" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+      <mxGeometry x="150" y="250" width="140" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="5" value="Process" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+      <mxGeometry x="160" y="380" width="120" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="6" value="Error Handler" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+      <mxGeometry x="340" y="250" width="120" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="7" value="End" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+      <mxGeometry x="160" y="490" width="120" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="8" edge="1" source="2" target="3" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="9" edge="1" source="3" target="4" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="10" value="Yes" edge="1" source="4" target="5" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="11" value="No" edge="1" source="4" target="6" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="12" edge="1" source="5" target="7" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="13" value="Retry" edge="1" source="6" target="3" parent="1">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>`;
+
+// ─── PARSER ─────────────────────────────────────────────────────────────────
+
+function parseDrawIO(xmlStr) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlStr.trim(), 'application/xml');
+
+  const parseErr = doc.querySelector('parsererror');
+  if (parseErr) throw new Error('Invalid XML: ' + parseErr.textContent.slice(0, 120));
+
+  const cells = Array.from(doc.querySelectorAll('mxCell'));
+  const nodes = {};
+  const edges = [];
+  const groups = {};
+
+  // First pass: collect all nodes
+  for (const cell of cells) {
+    const id = cell.getAttribute('id');
+    const value = cell.getAttribute('value') || '';
+    const style = cell.getAttribute('style') || '';
+    const vertex = cell.getAttribute('vertex');
+    const edge = cell.getAttribute('edge');
+    const source = cell.getAttribute('source');
+    const target = cell.getAttribute('target');
+    const parent = cell.getAttribute('parent');
+
+    if (id === '0' || id === '1') continue;
+
+    if (vertex === '1') {
+      const nodeType = detectNodeType(style, value);
+      nodes[id] = { id, label: sanitizeLabel(value), type: nodeType, style, parent };
+
+      // Check if it's a swimlane/group container
+      if (style.includes('swimlane') || style.includes('group')) {
+        groups[id] = { label: sanitizeLabel(value), children: [] };
+      }
+    } else if (edge === '1') {
+      edges.push({ id, label: sanitizeLabel(value), source, target, style });
+    }
+  }
+
+  // Assign children to groups
+  for (const [id, node] of Object.entries(nodes)) {
+    if (node.parent && groups[node.parent]) {
+      groups[node.parent].children.push(id);
+    }
+  }
+
+  // Detect diagram type
+  const diagramType = detectDiagramType(nodes, edges, groups);
+
+  if (diagramType === 'flowchart') {
+    return buildFlowchart(nodes, edges, groups);
+  } else if (diagramType === 'sequence') {
+    return buildSequenceDiagram(nodes, edges);
+  } else {
+    return buildFlowchart(nodes, edges, groups);
+  }
+}
+
+function detectDiagramType(nodes, edges, groups) {
+  const styles = Object.values(nodes).map(n => n.style.toLowerCase()).join(' ');
+  const labels = Object.values(nodes).map(n => n.label.toLowerCase()).join(' ');
+
+  if (styles.includes('shape=mxgraph.flowchart') ||
+      styles.includes('lifeline') ||
+      labels.includes('actor') ||
+      edges.some(e => e.style.includes('dashed') && e.style.includes('endArrow=open'))) {
+    return 'sequence';
+  }
+  return 'flowchart';
+}
+
+function detectNodeType(style, value) {
+  const s = style.toLowerCase();
+  const v = (value || '').toLowerCase();
+
+  if (s.includes('ellipse') || s.includes('rounded=1') && (v === 'start' || v === 'end' || v === 'stop' || v === 'begin')) return 'stadium';
+  if (s.includes('rhombus') || s.includes('diamond')) return 'diamond';
+  if (s.includes('cylinder') || s.includes('storage')) return 'cylinder';
+  if (s.includes('parallelogram') || s.includes('shape=parallelogram')) return 'parallelogram';
+  if (s.includes('hexagon')) return 'hexagon';
+  if (s.includes('ellipse')) return 'circle';
+  if (s.includes('swimlane') || s.includes('group')) return 'group';
+  return 'rect';
+}
+
+function sanitizeLabel(raw) {
+  if (!raw) return '';
+  return raw
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/"/g, "'")
+    .trim();
+}
+
+function nodeId(id) {
+  return 'n' + id.replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+function formatNode(id, node) {
+  const nid = nodeId(id);
+  const lbl = node.label || nid;
+
+  switch (node.type) {
+    case 'diamond': return `${nid}{${lbl}}`;
+    case 'stadium': return `${nid}([${lbl}])`;
+    case 'circle': return `${nid}((${lbl}))`;
+    case 'cylinder': return `${nid}[(${lbl})]`;
+    case 'parallelogram': return `${nid}[/${lbl}/]`;
+    case 'hexagon': return `${nid}{{${lbl}}}`;
+    default: return `${nid}[${lbl}]`;
+  }
+}
+
+function buildFlowchart(nodes, edges, groups) {
+  const lines = ['flowchart TD'];
+  const defined = new Set();
+
+  // Add subgraphs
+  for (const [gid, group] of Object.entries(groups)) {
+    if (group.children.length === 0) continue;
+    lines.push(`  subgraph ${nodeId(gid)}["${group.label}"]`);
+    for (const cid of group.children) {
+      if (nodes[cid]) {
+        lines.push('    ' + formatNode(cid, nodes[cid]));
+        defined.add(cid);
+      }
+    }
+    lines.push('  end');
+  }
+
+  // Add standalone nodes not in subgraphs
+  for (const [id, node] of Object.entries(nodes)) {
+    if (defined.has(id)) continue;
+    if (node.type === 'group') continue;
+    // Only define if referenced; edges will define inline otherwise
+    // We'll handle via edges
+  }
+
+  // Add edges
+  for (const edge of edges) {
+    const src = edge.source;
+    const tgt = edge.target;
+    if (!src || !tgt) continue;
+
+    const srcNode = nodes[src];
+    const tgtNode = nodes[tgt];
+    if (!srcNode || !tgtNode) continue;
+
+    const srcStr = defined.has(src) ? nodeId(src) : formatNode(src, srcNode);
+    const tgtStr = defined.has(tgt) ? nodeId(tgt) : formatNode(tgt, tgtNode);
+
+    defined.add(src);
+    defined.add(tgt);
+
+    const arrow = edge.style.includes('dashed') ? '-.->' : '-->';
+    const label = edge.label ? `|${edge.label}|` : '';
+    lines.push(`  ${srcStr} ${arrow}${label} ${tgtStr}`);
+  }
+
+  // Ensure orphan nodes appear
+  for (const [id, node] of Object.entries(nodes)) {
+    if (defined.has(id)) continue;
+    if (node.type === 'group') continue;
+    lines.push('  ' + formatNode(id, node));
+  }
+
+  return lines.join('\n');
+}
+
+function buildSequenceDiagram(nodes, edges) {
+  const lines = ['sequenceDiagram'];
+
+  const actors = Object.values(nodes);
+  for (const a of actors) {
+    if (!a.label) continue;
+    lines.push(`  participant ${nodeId(a.id)} as ${a.label}`);
+  }
+
+  for (const edge of edges) {
+    const src = nodes[edge.source];
+    const tgt = nodes[edge.target];
+    if (!src || !tgt) continue;
+    const arrow = edge.style.includes('dashed') ? '-->>' : '->>';
+    const msg = edge.label || '&nbsp;';
+    lines.push(`  ${nodeId(src.id)}${arrow}${nodeId(tgt.id)}: ${msg}`);
+  }
+
+  return lines.join('\n');
+}
+
+// ─── RENDERING ──────────────────────────────────────────────────────────────
+
+function renderMermaidOutput(code) {
+  const el = document.getElementById('mermaid-output');
+  const lines = code.split('\n');
+  const html = lines.map((line, i) => {
+    const num = `<span class="line-num">${String(i+1).padStart(2,'0')}</span>`;
+    const highlighted = syntaxHighlight(line);
+    return `${num}${highlighted}`;
+  }).join('\n');
+  el.innerHTML = html;
+}
+
+function syntaxHighlight(line) {
+  const trimmed = line.trim();
+  const safe = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  if (!trimmed) return safe;
+  if (trimmed.startsWith('%%')) return `<span class="m-comment">${safe}</span>`;
+
+  const keywords = ['flowchart','sequenceDiagram','subgraph','end','participant','note','loop','alt','else','opt','TD','LR','BT','RL','TB'];
+  let result = safe;
+  for (const kw of keywords) {
+    const re = new RegExp(`\\b${kw}\\b`, 'g');
+    result = result.replace(re, `<span class="m-keyword">${kw}</span>`);
+  }
+  result = result.replace(/(--&gt;|\.\.->|--&gt;|--&gt;\||&lt;--|&gt;&gt;|-&gt;&gt;)/g, '<span class="m-arrow">$1</span>');
+  result = result.replace(/\|([^|]+)\|/g, '|<span class="m-label">$1</span>|');
+
+  return result;
+}
+
+async function renderPreview(code) {
+  const container = document.getElementById('preview-panel');
+  try {
+    const id = 'mermaid-' + Date.now();
+    const { svg } = await mermaid.render(id, code);
+    container.innerHTML = `<div id="mermaid-render">${svg}</div>`;
+  } catch (e) {
+    container.innerHTML = `<div class="error-box">Render error: ${e.message || e}</div>`;
+  }
+}
+
+// ─── CORE ACTIONS ───────────────────────────────────────────────────────────
+
+function handleConvert() {
+  const xml = document.getElementById('xml-editor').value.trim();
+  if (!xml) {
+    setStatus('idle', 'no input');
+    return;
+  }
+
+  try {
+    const mmd = parseDrawIO(xml);
+    lastMermaidCode = mmd;
+    renderMermaidOutput(mmd);
+    renderPreview(mmd);
+    setStatus('ready', 'converted');
+  } catch (e) {
+    setStatus('error', 'error');
+    document.getElementById('mermaid-output').innerHTML =
+      `<div class="error-box">Parse error: ${e.message}</div>`;
+    document.getElementById('preview-panel').innerHTML =
+      `<div class="error-box" style="margin:16px;">Fix the XML and try again.</div>`;
+  }
+}
+
+function autoConvert() {
+  clearTimeout(autoConvertTimer);
+  autoConvertTimer = setTimeout(handleConvert, 600);
+}
+
+function loadExample() {
+  document.getElementById('xml-editor').value = EXAMPLE_XML;
+  handleConvert();
+}
+
+function clearAll() {
+  document.getElementById('xml-editor').value = '';
+  document.getElementById('mermaid-output').innerHTML =
+    '<div class="empty-state"><div class="empty-icon">∿</div><p>Mermaid code will appear here after conversion.</p></div>';
+  document.getElementById('preview-panel').innerHTML =
+    '<div class="empty-state" style="color:#aaa;"><div class="empty-icon">⬡</div><p>Diagram preview will render here.</p></div>';
+  lastMermaidCode = '';
+  setStatus('idle', 'idle');
+}
+
+function setStatus(type, text) {
+  const pill = document.getElementById('status-pill');
+  const span = document.getElementById('status-text');
+  pill.className = 'status-pill ' + type;
+  span.textContent = text;
+}
+
+// ─── FILE UPLOAD / DROP ─────────────────────────────────────────────────────
+
+function handleFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('xml-editor').value = e.target.result;
+    handleConvert();
+  };
+  reader.readAsText(file);
+}
+
+const dropZone = document.getElementById('xml-drop-zone');
+const dropOverlay = document.getElementById('drop-overlay');
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropOverlay.classList.add('active');
+});
+dropZone.addEventListener('dragleave', e => {
+  dropOverlay.classList.remove('active');
+});
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropOverlay.classList.remove('active');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    document.getElementById('xml-editor').value = ev.target.result;
+    handleConvert();
+  };
+  reader.readAsText(file);
+});
+
+// ─── COPY / DOWNLOAD ────────────────────────────────────────────────────────
+
+function copyMermaid() {
+  if (!lastMermaidCode) return;
+  navigator.clipboard.writeText(lastMermaidCode).then(() => {
+    const flash = document.getElementById('copied-flash');
+    flash.classList.add('show');
+    setTimeout(() => flash.classList.remove('show'), 2000);
+  });
+}
+
+function downloadMermaid() {
+  if (!lastMermaidCode) return;
+  const blob = new Blob([lastMermaidCode], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'diagram.mmd';
+  a.click();
+}
+
+// ─── PREVIEW THEME ──────────────────────────────────────────────────────────
+
+function setPreviewBg(mode, tabEl) {
+  const container = document.getElementById('preview-container');
+  const panel = document.getElementById('preview-panel');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+
+  if (mode === 'dark') {
+    container.style.background = '#1a1a2e';
+    panel.style.background = '#1a1a2e';
+    mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+  } else {
+    container.style.background = '#fff';
+    panel.style.background = '#fff';
+    mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+  }
+  if (lastMermaidCode) renderPreview(lastMermaidCode);
+}
+</script>
+</body>
+</html>
